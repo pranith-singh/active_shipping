@@ -1,8 +1,25 @@
 from flask import Flask, request, jsonify, render_template_string
+import sqlite3
 
 app = Flask(__name__)
 
-orders = []  # temporary storage
+# Create DB + table
+def init_db():
+    conn = sqlite3.connect("database.db")
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            weight REAL,
+            distance REAL,
+            type TEXT,
+            cost REAL
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+init_db()
 
 @app.route("/")
 def home():
@@ -11,71 +28,23 @@ def home():
     <html>
     <head>
         <title>Shipping App</title>
-        <style>
-            body {
-                font-family: Arial;
-                background: linear-gradient(135deg, #667eea, #764ba2);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-                margin: 0;
-                color: white;
-            }
-            .card {
-                background: white;
-                color: black;
-                padding: 30px;
-                border-radius: 15px;
-                width: 350px;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-                text-align: center;
-            }
-            input, select {
-                width: 90%;
-                padding: 10px;
-                margin: 10px;
-                border-radius: 8px;
-                border: 1px solid #ccc;
-            }
-            button {
-                padding: 12px 20px;
-                background: #667eea;
-                color: white;
-                border: none;
-                border-radius: 8px;
-                cursor: pointer;
-                width: 95%;
-            }
-            button:hover {
-                background: #5a67d8;
-            }
-            #result {
-                margin-top: 15px;
-                font-weight: bold;
-            }
-        </style>
     </head>
-    <body>
+    <body style="font-family:Arial; text-align:center; margin-top:50px;">
 
-        <div class="card">
-            <h2>🚚 Shipping App</h2>
+        <h2>🚚 Shipping App</h2>
 
-            <input id="weight" type="number" placeholder="Weight (kg)">
-            <input id="distance" type="number" placeholder="Distance (km)">
+        <input id="weight" type="number" placeholder="Weight"><br><br>
+        <input id="distance" type="number" placeholder="Distance"><br><br>
 
-            <select id="type">
-                <option value="standard">Standard</option>
-                <option value="express">Express</option>
-            </select>
+        <select id="type">
+            <option value="standard">Standard</option>
+            <option value="express">Express</option>
+        </select><br><br>
 
-            <button onclick="calculate()">Calculate & Save</button>
+        <button onclick="calculate()">Calculate & Save</button>
+        <button onclick="viewOrders()">View Orders</button>
 
-            <div id="result"></div>
-
-            <br>
-            <button onclick="viewOrders()">View Orders</button>
-        </div>
+        <h3 id="result"></h3>
 
         <script>
             function calculate() {
@@ -119,11 +88,30 @@ def shipping():
     if ship_type == "express":
         cost *= 1.5
 
-    order = {"cost": round(cost, 2), "type": ship_type}
-    orders.append(order)
+    conn = sqlite3.connect("database.db")
+    c = conn.cursor()
+    c.execute("INSERT INTO orders (weight, distance, type, cost) VALUES (?, ?, ?, ?)",
+              (weight, distance, ship_type, round(cost, 2)))
+    conn.commit()
+    conn.close()
 
-    return jsonify({"shipping_cost": order["cost"]})
+    return jsonify({"shipping_cost": round(cost, 2)})
 
 @app.route("/orders")
 def get_orders():
+    conn = sqlite3.connect("database.db")
+    c = conn.cursor()
+    c.execute("SELECT weight, distance, type, cost FROM orders")
+    rows = c.fetchall()
+    conn.close()
+
+    orders = []
+    for r in rows:
+        orders.append({
+            "weight": r[0],
+            "distance": r[1],
+            "type": r[2],
+            "cost": r[3]
+        })
+
     return jsonify(orders)
