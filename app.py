@@ -1,14 +1,45 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template_string
 
 app = Flask(__name__)
 
-# Home route
+# UI Page
 @app.route("/")
 def home():
-    return "Shipping App is running 🚀"
+    return render_template_string("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Shipping App</title>
+    </head>
+    <body style="font-family: Arial; text-align:center; margin-top:50px;">
+        <h1>🚚 Shipping Calculator</h1>
 
-# Shipping cost calculator
-@app.route("/shipping", methods=["GET"])
+        <input id="weight" type="number" placeholder="Enter weight" /><br><br>
+        <input id="distance" type="number" placeholder="Enter distance" /><br><br>
+
+        <button onclick="calculate()">Calculate</button>
+
+        <h2 id="result"></h2>
+
+        <script>
+            function calculate() {
+                let weight = document.getElementById("weight").value;
+                let distance = document.getElementById("distance").value;
+
+                fetch(`/shipping?weight=${weight}&distance=${distance}`)
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById("result").innerText =
+                        "Shipping Cost: " + data.shipping_cost;
+                });
+            }
+        </script>
+    </body>
+    </html>
+    """)
+
+# API
+@app.route("/shipping")
 def shipping():
     try:
         weight = float(request.args.get("weight", 1))
@@ -16,11 +47,6 @@ def shipping():
 
         cost = (weight * 5) + (distance * 0.5)
 
-        return jsonify({
-            "weight": weight,
-            "distance": distance,
-            "shipping_cost": cost
-        })
-
+        return jsonify({"shipping_cost": cost})
     except:
         return jsonify({"error": "Invalid input"})
