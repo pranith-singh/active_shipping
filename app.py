@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify, render_template_string
 
 app = Flask(__name__)
 
+orders = []  # temporary storage
+
 @app.route("/")
 def home():
     return render_template_string("""
@@ -12,62 +14,67 @@ def home():
         <style>
             body {
                 font-family: Arial;
-                background: #f4f6f8;
-                text-align: center;
-                padding: 50px;
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+                color: white;
             }
-            .container {
+            .card {
                 background: white;
+                color: black;
                 padding: 30px;
-                border-radius: 10px;
-                width: 300px;
-                margin: auto;
-                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                border-radius: 15px;
+                width: 350px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                text-align: center;
             }
             input, select {
                 width: 90%;
                 padding: 10px;
                 margin: 10px;
-                border-radius: 5px;
+                border-radius: 8px;
                 border: 1px solid #ccc;
             }
             button {
-                padding: 10px 20px;
-                background: #0078D4;
+                padding: 12px 20px;
+                background: #667eea;
                 color: white;
                 border: none;
-                border-radius: 5px;
+                border-radius: 8px;
                 cursor: pointer;
+                width: 95%;
             }
             button:hover {
-                background: #005fa3;
-            }
-            h1 {
-                margin-bottom: 20px;
+                background: #5a67d8;
             }
             #result {
-                margin-top: 20px;
-                font-size: 18px;
+                margin-top: 15px;
                 font-weight: bold;
             }
         </style>
     </head>
     <body>
 
-        <div class="container">
-            <h1>🚚 Shipping App</h1>
+        <div class="card">
+            <h2>🚚 Shipping App</h2>
 
-            <input id="weight" type="number" placeholder="Weight (kg)" />
-            <input id="distance" type="number" placeholder="Distance (km)" />
+            <input id="weight" type="number" placeholder="Weight (kg)">
+            <input id="distance" type="number" placeholder="Distance (km)">
 
             <select id="type">
                 <option value="standard">Standard</option>
                 <option value="express">Express</option>
             </select>
 
-            <button onclick="calculate()">Calculate</button>
+            <button onclick="calculate()">Calculate & Save</button>
 
             <div id="result"></div>
+
+            <br>
+            <button onclick="viewOrders()">View Orders</button>
         </div>
 
         <script>
@@ -79,12 +86,20 @@ def home():
                 fetch(`/shipping?weight=${weight}&distance=${distance}&type=${type}`)
                 .then(res => res.json())
                 .then(data => {
-                    if (data.error) {
-                        document.getElementById("result").innerText = data.error;
-                    } else {
-                        document.getElementById("result").innerText =
-                            "Cost: ₹" + data.shipping_cost + " (" + data.type + ")";
-                    }
+                    document.getElementById("result").innerText =
+                        "Cost: ₹" + data.shipping_cost;
+                });
+            }
+
+            function viewOrders() {
+                fetch('/orders')
+                .then(res => res.json())
+                .then(data => {
+                    let text = "Orders:\\n";
+                    data.forEach(o => {
+                        text += `₹${o.cost} (${o.type})\\n`;
+                    });
+                    alert(text);
                 });
             }
         </script>
@@ -95,21 +110,20 @@ def home():
 
 @app.route("/shipping")
 def shipping():
-    try:
-        weight = float(request.args.get("weight", 1))
-        distance = float(request.args.get("distance", 1))
-        ship_type = request.args.get("type", "standard")
+    weight = float(request.args.get("weight", 1))
+    distance = float(request.args.get("distance", 1))
+    ship_type = request.args.get("type", "standard")
 
-        # Pricing logic
-        cost = (weight * 5) + (distance * 0.5)
+    cost = (weight * 5) + (distance * 0.5)
 
-        if ship_type == "express":
-            cost *= 1.5  # extra charge
+    if ship_type == "express":
+        cost *= 1.5
 
-        return jsonify({
-            "shipping_cost": round(cost, 2),
-            "type": ship_type
-        })
+    order = {"cost": round(cost, 2), "type": ship_type}
+    orders.append(order)
 
-    except:
-        return jsonify({"error": "Invalid input"})
+    return jsonify({"shipping_cost": order["cost"]})
+
+@app.route("/orders")
+def get_orders():
+    return jsonify(orders)
